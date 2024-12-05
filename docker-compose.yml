@@ -1,0 +1,68 @@
+version: "3.8"
+networks:
+  my-network:
+services:
+  my-service:
+    build: ./AirQuality
+    restart: always
+    environment:
+      MQTT_HOST: rabbitmq
+      DB_HOST: mySqldb
+      DB_PORT: 3306
+      DB_NAME: mydatabase
+      DB_USERNAME: "root"
+      DB_PASSWORD: "password"
+    ports:
+      - 8080:8080
+    networks:
+      - my-network
+    depends_on:
+      - mySqldb
+      - grafana
+      - rabbitmq
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: always
+    ports:
+      - 3000:3000
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: adminpassword
+    depends_on:
+      - mySqldb
+    networks:
+      - my-network
+
+  rabbitmq:
+    image: rabbitmq:management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+      - "1883:1883"
+    command: '/bin/bash -c "rabbitmq-plugins enable --offline rabbitmq_mqtt rabbitmq_web_mqtt rabbitmq_amqp1_0; rabbitmq-server"'
+    environment:
+      RABBITMQ_DEFAULT_USER: user
+      RABBITMQ_DEFAULT_PASS: password
+      RABBITMQ_MQTT_KEEPALIVE_INTERVAL: 240
+    volumes:
+      - type: bind
+        source: ./config/rabbitmq.conf
+        target: /etc/rabbitmq/rabbitmq.conf
+        read_only: true
+      - type: bind
+        source: ./config/advanced.config
+        target: /etc/rabbitmq/advanced.config
+        read_only: true
+    networks:
+      - my-network
+
+  mySqldb:
+    image: mysql:latest
+    restart: always
+    ports:
+      - 3307:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: mydatabase
+    networks:
+      - my-network
